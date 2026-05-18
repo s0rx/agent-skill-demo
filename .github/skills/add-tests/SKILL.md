@@ -1,4 +1,5 @@
 ---
+name: add-tests
 description: 'Add pytest tests for the open file (or the file the user names)'
 agent: agent
 tools: ['search/codebase', 'edit/editFiles', 'execute/runInTerminal', 'execute/runTests', 'read/problems']
