@@ -59,21 +59,9 @@ def done_todo(todo_id):
     print(f"Todo with id {todo_id} not found")
 
 
-def drop_todo(todo_id):
-    """Remove a todo by ID."""
-    todos = load_todos()
-    original_len = len(todos)
-    todos = [t for t in todos if t["id"] != todo_id]
-    if len(todos) < original_len:
-        save_todos(todos)
-        print(f"Dropped todo with id {todo_id}")
-    else:
-        print(f"Todo with id {todo_id} not found")
-
-
 def main():
     if len(sys.argv) < 2:
-        print("Usage: python todo.py [add <text> | list | done <id> | drop <id>]")
+        print("Usage: python todo.py [add <text> | list | done <id>]")
         return
     cmd = sys.argv[1]
     if cmd == "add" and len(sys.argv) > 2:
@@ -84,12 +72,6 @@ def main():
         try:
             todo_id = int(sys.argv[2])
             done_todo(todo_id)
-        except ValueError:
-            print(f"Error: '{sys.argv[2]}' is not a valid todo ID")
-    elif cmd == "drop" and len(sys.argv) > 2:
-        try:
-            todo_id = int(sys.argv[2])
-            drop_todo(todo_id)
         except ValueError:
             print(f"Error: '{sys.argv[2]}' is not a valid todo ID")
     else:

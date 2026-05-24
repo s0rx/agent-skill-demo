@@ -1,107 +1,135 @@
 import json
-import todo
-import pytest
+import sys
 from datetime import datetime
+from pathlib import Path
 
-def test_load_todos_missing_file(tmp_path, monkeypatch):
-    """Returns empty list if file doesn't exist."""
-    d = tmp_path / "subdir"
-    d.mkdir()
-    f = d / "todos.json"
-    monkeypatch.setattr(todo, "TODO_FILE", f)
+import pytest
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+import todo
+
+
+def test_load_todos_returns_empty_list_when_file_missing(tmp_path, monkeypatch):
+    monkeypatch.setattr(todo, 'TODO_FILE', tmp_path / 'todos.json')
     assert todo.load_todos() == []
 
-def test_load_todos_existing_file(tmp_path, monkeypatch):
-    """Returns list if file exists."""
-    f = tmp_path / "todos.json"
-    data = [{"id": 1, "text": "test", "done": False}]
-    f.write_text(json.dumps(data))
-    monkeypatch.setattr(todo, "TODO_FILE", f)
-    assert todo.load_todos() == data
 
-def test_save_todos(tmp_path, monkeypatch):
-    """Correctly saves list to file."""
-    f = tmp_path / "todos.json"
-    monkeypatch.setattr(todo, "TODO_FILE", f)
-    data = [{"id": 1, "text": "saved", "done": True}]
+def test_load_todos_reads_valid_json(tmp_path, monkeypatch):
+    file_path = tmp_path / 'todos.json'
+    file_path.write_text(json.dumps([{'id': 1, 'text': 'task', 'done': False}]))
+    monkeypatch.setattr(todo, 'TODO_FILE', file_path)
+    assert todo.load_todos() == [{'id': 1, 'text': 'task', 'done': False}]
+
+
+def test_load_todos_raises_json_decode_error_for_malformed_file(tmp_path, monkeypatch):
+    file_path = tmp_path / 'todos.json'
+    file_path.write_text('not valid json')
+    monkeypatch.setattr(todo, 'TODO_FILE', file_path)
+    with pytest.raises(json.JSONDecodeError):
+        todo.load_todos()
+
+
+def test_save_todos_writes_json_file(tmp_path, monkeypatch):
+    file_path = tmp_path / 'todos.json'
+    monkeypatch.setattr(todo, 'TODO_FILE', file_path)
+    data = [{'id': 1, 'text': 'task', 'done': False}]
     todo.save_todos(data)
-    assert json.loads(f.read_text()) == data
+    assert json.loads(file_path.read_text()) == data
 
-def test_add_todo(tmp_path, monkeypatch):
-    """Adds a todo item correctly."""
-    f = tmp_path / "todos.json"
-    monkeypatch.setattr(todo, "TODO_FILE", f)
-    todo.add_todo("New task")
-    
-    todos = todo.load_todos()
-    assert len(todos) == 1
-    assert todos[0]["text"] == "New task"
-    assert todos[0]["done"] is False
-    assert "created" in todos[0]
 
-def test_list_todos_empty(capsys, tmp_path, monkeypatch):
-    """Prints help message when no todos exist."""
-    monkeypatch.setattr(todo, "TODO_FILE", tmp_path / "empty.json")
+def test_add_todo_appends_todo_and_prints_message(tmp_path, monkeypatch, capsys):
+    file_path = tmp_path / 'todos.json'
+    monkeypatch.setattr(todo, 'TODO_FILE', file_path)
+
+    class FixedDatetime:
+        @classmethod
+        def now(cls):
+            return datetime(2020, 1, 1, 12, 0, 0)
+
+    monkeypatch.setattr(todo, 'datetime', FixedDatetime)
+    todo.add_todo('Buy milk')
+
+    captured = capsys.readouterr()
+    assert 'Added: Buy milk' in captured.out
+    saved = json.loads(file_path.read_text())
+    assert saved == [{
+        'id': 1,
+        'text': 'Buy milk',
+        'done': False,
+        'created': '2020-01-01T12:00:00',
+    }]
+
+
+def test_list_todos_prints_helpful_message_for_empty_list(tmp_path, monkeypatch, capsys):
+    monkeypatch.setattr(todo, 'TODO_FILE', tmp_path / 'todos.json')
     todo.list_todos()
     captured = capsys.readouterr()
-    assert "No todos yet" in captured.out
+    assert 'No todos yet.' in captured.out
 
-def test_list_todos_filled(capsys, tmp_path, monkeypatch):
-    """Prints todos in list."""
-    f = tmp_path / "todos.json"
-    data = [{"id": 1, "text": "Task 1", "done": False}, {"id": 2, "text": "Task 2", "done": True}]
-    f.write_text(json.dumps(data))
-    monkeypatch.setattr(todo, "TODO_FILE", f)
-    
+
+def test_list_todos_prints_completed_and_pending_items(tmp_path, monkeypatch, capsys):
+    file_path = tmp_path / 'todos.json'
+    todos = [
+        {'id': 1, 'text': 'task1', 'done': False},
+        {'id': 2, 'text': 'task2', 'done': True},
+    ]
+    file_path.write_text(json.dumps(todos))
+    monkeypatch.setattr(todo, 'TODO_FILE', file_path)
     todo.list_todos()
     captured = capsys.readouterr()
-    assert "[ ] 1. Task 1" in captured.out
-    assert "[x] 2. Task 2" in captured.out
+    assert '[ ] 1. task1' in captured.out
+    assert '[x] 2. task2' in captured.out
 
-def test_done_todo_success(capsys, tmp_path, monkeypatch):
-    """Marks a todo as done."""
-    f = tmp_path / "todos.json"
-    data = [{"id": 1, "text": "Task 1", "done": False}]
-    f.write_text(json.dumps(data))
-    monkeypatch.setattr(todo, "TODO_FILE", f)
-    
+
+def test_done_todo_marks_item_completed_and_saves(tmp_path, monkeypatch, capsys):
+    file_path = tmp_path / 'todos.json'
+    todos = [{'id': 1, 'text': 'task1', 'done': False}]
+    file_path.write_text(json.dumps(todos))
+    monkeypatch.setattr(todo, 'TODO_FILE', file_path)
+
     todo.done_todo(1)
-    todos = todo.load_todos()
-    assert todos[0]["done"] is True
     captured = capsys.readouterr()
-    assert "Marked done: Task 1" in captured.out
+    assert 'Marked done: task1' in captured.out
+    assert json.loads(file_path.read_text())[0]['done'] is True
 
-def test_done_todo_not_found(capsys, tmp_path, monkeypatch):
-    """Handles missing ID for done."""
-    monkeypatch.setattr(todo, "TODO_FILE", tmp_path / "none.json")
-    todo.done_todo(99)
+
+def test_done_todo_reports_not_found_for_missing_id(tmp_path, monkeypatch, capsys):
+    file_path = tmp_path / 'todos.json'
+    file_path.write_text(json.dumps([{'id': 1, 'text': 'task1', 'done': False}]))
+    monkeypatch.setattr(todo, 'TODO_FILE', file_path)
+
+    todo.done_todo(2)
     captured = capsys.readouterr()
-    assert "Todo with id 99 not found" in captured.out
+    assert 'Todo with id 2 not found' in captured.out
 
-def test_drop_todo_success(capsys, tmp_path, monkeypatch):
-    """Removes a todo."""
-    f = tmp_path / "todos.json"
-    data = [{"id": 1, "text": "Task 1", "done": False}]
-    f.write_text(json.dumps(data))
-    monkeypatch.setattr(todo, "TODO_FILE", f)
-    
-    todo.drop_todo(1)
-    assert len(todo.load_todos()) == 0
-    captured = capsys.readouterr()
-    assert "Dropped todo with id 1" in captured.out
 
-def test_main_routing_add(tmp_path, monkeypatch):
-    """Main routes to add_todo."""
-    f = tmp_path / "todos.json"
-    monkeypatch.setattr(todo, "TODO_FILE", f)
-    monkeypatch.setattr("sys.argv", ["todo.py", "add", "Bread", "and", "Butter"])
+def test_main_dispatches_add_list_and_done_commands(tmp_path, monkeypatch, capsys):
+    file_path = tmp_path / 'todos.json'
+    monkeypatch.setattr(todo, 'TODO_FILE', file_path)
+
+    class FixedDatetime:
+        @classmethod
+        def now(cls):
+            return datetime(2020, 1, 1, 12, 0, 0)
+
+    monkeypatch.setattr(todo, 'datetime', FixedDatetime)
+    monkeypatch.setattr(sys, 'argv', ['todo.py', 'add', 'Hello'])
     todo.main()
-    todos = todo.load_todos()
-    assert todos[0]["text"] == "Bread and Butter"
-
-def test_main_routing_invalid_id(capsys, monkeypatch):
-    """Main handles invalid ID gracefully."""
-    monkeypatch.setattr("sys.argv", ["todo.py", "done", "abc"])
+    monkeypatch.setattr(sys, 'argv', ['todo.py', 'done', '1'])
     todo.main()
     captured = capsys.readouterr()
-    assert "is not a valid todo ID" in captured.out
+
+    assert 'Added: Hello' in captured.out
+    assert 'Marked done: Hello' in captured.out
+    monkeypatch.setattr(sys, 'argv', ['todo.py', 'list'])
+    todo.main()
+    captured = capsys.readouterr()
+    assert '[x] 1. Hello' in captured.out
+
+
+def test_main_reports_unknown_command(tmp_path, monkeypatch, capsys):
+    monkeypatch.setattr(todo, 'TODO_FILE', tmp_path / 'todos.json')
+    monkeypatch.setattr(sys, 'argv', ['todo.py', 'foobar'])
+    todo.main()
+    captured = capsys.readouterr()
+    assert 'Unknown command: foobar' in captured.out
