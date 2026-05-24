@@ -42,7 +42,7 @@ just print the plan, then continue to step 2.
 
 ## Step 3 — Run the tests
 
-Run `pytest -q` from the project root.
+Run `pytest -v` from the project root.
 
 If a test fails, decide carefully:
 
@@ -57,7 +57,15 @@ Finish with a short summary block:
 
 - Number of tests added.
 - Coverage gaps you intentionally skipped (and why).
-- The exact command to re-run them: `pytest -q`.
+- The exact command to re-run them: `pytest -v`.
+
+## Step 5 — Coverage Report
+
+Display and save a coverage report using `pytest --cov`.
+
+- Display coverage report in the terminal.
+- Save coverage report as `coverage.html` in the project root.
+- Save coverage report as `coverage.xml` in the project root.
 
 ## Variables
 

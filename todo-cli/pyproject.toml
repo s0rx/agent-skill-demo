@@ -1,0 +1,26 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "todo-cli"
+version = "0.1.0"
+description = "A simple Todo CLI application"
+readme = "README.md"
+requires-python = ">=3.8"
+dependencies = [
+    "rich>=15.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=9.0.3",
+    "pytest-cov>=7.1.0",
+    "pytest-html>=4.2.0",
+]
+
+[project.scripts]
+todo = "todo.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/todo"]

@@ -9,8 +9,8 @@ the guide from the top — it will bring you back here at the right moment.
 ## Quick commands (after you finish setup.md)
 
 ```
-python todo.py add "Try the AI agent"
-python todo.py list
+python src/todo.py add "Try the AI agent"
+python src/todo.py list
 pytest -q
 ```
 
